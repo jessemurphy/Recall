@@ -40,6 +40,9 @@ button{font:inherit;cursor:pointer;border-radius:10px;
 button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .deckrow{width:100%;display:flex;align-items:center;gap:12px;text-align:left;
   padding:15px 16px;margin-bottom:10px}
+.deckwrap{display:flex;gap:8px;margin-bottom:10px}
+.deckwrap .deckrow{margin-bottom:0;min-width:0;flex:1}
+.deckwrap .rv{padding:0 18px;font-weight:700}
 .deckrow .nm{font-weight:700;font-size:18px}
 .deckrow .ct{margin-left:auto;font-size:14px;color:var(--muted);white-space:nowrap}
 .deckrow .ct.hot{color:var(--accent);font-weight:700}
@@ -124,7 +127,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v6</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v7</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -299,7 +302,16 @@ function showDecks(){
     b.innerHTML = '<span class="nm">' + esc(d.name) + '</span>' +
       '<span class="ct' + (parts.length ? " hot" : "") + '">' + label + '</span>';
     b.onclick = () => openDeck(d.id);
-    box.appendChild(b);
+    const wrap = document.createElement("div");
+    wrap.className = "deckwrap";
+    wrap.appendChild(b);
+    if (parts.length){
+      const r = document.createElement("button");
+      r.className = "btn primary rv"; r.textContent = "Review";
+      r.onclick = () => { cur = d.id; startReview(); };
+      wrap.appendChild(r);
+    }
+    box.appendChild(wrap);
   }
   $("empty-hint").textContent = db.decks.length ? "" :
     "No decks yet — name one above to start. Try a few things you actually want to remember.";
@@ -333,7 +345,7 @@ function openDeck(id){
      : '<span class="hint" style="margin-left:auto">' +
        (d.cards.length ? "Done for today." : "") + '</span>') + '</div>' +
     (d.cards.length ? '<div class="row"><button class="btn quiet" onclick="toggleRev()">&#8646; Asking: ' +
-       (d.rev ? "back &rarr; front" : "front &rarr; back") + '</button></div>' : '');
+       DIR_LABEL[deckDir(d)] + '</button></div>' : '');
   const box = $("cardlist"); box.innerHTML = "";
   for (const c of d.cards){
     const row = document.createElement("button");
@@ -448,11 +460,22 @@ function mastery(c){
 }
 
 // ---- review -----------------------------------------------------------
-function toggleRev(){ const d = deck(); d.rev = !d.rev; save(); openDeck(cur); }
-// Which side is the question. Reverse only applies to two-sided cards —
-// a cloze has no back to flip to, so it ignores the toggle.
-function sides(d, c){
-  return (d.rev && c.back && !isCloze(c.front))
+const DIRS = ["fb", "bf", "both"];
+const DIR_LABEL = {fb: "front &rarr; back", bf: "back &rarr; front",
+                   both: "both ways"};
+function deckDir(d){ return d.dir || (d.rev ? "bf" : "fb"); }
+function toggleRev(){
+  const d = deck();
+  d.dir = DIRS[(DIRS.indexOf(deckDir(d)) + 1) % DIRS.length];
+  delete d.rev; save(); openDeck(cur);
+}
+// Which side is the question this deal. Direction only applies to
+// two-sided cards — a cloze has no back to flip to, so it always asks
+// the front. curDir is fixed when the question is dealt so the reveal
+// matches it.
+let curDir = "fb";
+function sides(c, dir){
+  return (dir === "bf" && c.back && !isCloze(c.front))
     ? {q: c.back, a: c.front} : {q: c.front, a: c.back};
 }
 function startReview(){ show("v-review"); renderReview(); }
@@ -469,8 +492,10 @@ async function renderReview(){
     bar.innerHTML = '<button class="btn" onclick="openDeck(cur)">Back to deck</button>';
     return;
   }
+  const dd = deckDir(d);
+  curDir = dd === "both" ? (Math.random() < 0.5 ? "bf" : "fb") : dd;
   const cz = isCloze(c.front);
-  const s = sides(d, c);
+  const s = sides(c, curDir);
   const qImg = await imgGet(s.q === c.front ? c.imgF : c.imgB);
   face.innerHTML = '<div class="face"><p class="q">' +
     (cz ? clozeQ(c.front) : esc(s.q)) + '</p>' +
@@ -482,7 +507,7 @@ async function reveal(id){
   const d = deck(), c = d.cards.find(k => k.id === id);
   const [fImg, bImg] = await Promise.all([imgGet(c.imgF), imgGet(c.imgB)]);
   const cz = isCloze(c.front);
-  const s = sides(d, c);
+  const s = sides(c, curDir);
   let inner;
   if (cz){
     inner = '<p class="q">' + clozeA(c.front) + '</p>' +

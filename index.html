@@ -127,7 +127,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v8</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v9</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -290,20 +290,71 @@ const show = v => {
 };
 const deck = () => db.decks.find(d => d.id === cur);
 
-const EXAMPLE_DECK = {name: "World capitals", cards: [
+const EXAMPLE_DECKS = [
+ {name: "US presidents", dir: "both", cards: [
+  ["1","George Washington"],
+  ["2","John Adams"],
+  ["3","Thomas Jefferson"],
+  ["4","James Madison"],
+  ["5","James Monroe"],
+  ["6","John Quincy Adams"],
+  ["7","Andrew Jackson"],
+  ["8","Martin Van Buren"],
+  ["9","William Henry Harrison"],
+  ["10","John Tyler"],
+  ["11","James K. Polk"],
+  ["12","Zachary Taylor"],
+  ["13","Millard Fillmore"],
+  ["14","Franklin Pierce"],
+  ["15","James Buchanan"],
+  ["16","Abraham Lincoln"],
+  ["17","Andrew Johnson"],
+  ["18","Ulysses S. Grant"],
+  ["19","Rutherford B. Hayes"],
+  ["20","James A. Garfield"],
+  ["21","Chester A. Arthur"],
+  ["22","Grover Cleveland (1885–89)"],
+  ["23","Benjamin Harrison"],
+  ["24","Grover Cleveland (1893–97)"],
+  ["25","William McKinley"],
+  ["26","Theodore Roosevelt"],
+  ["27","William Howard Taft"],
+  ["28","Woodrow Wilson"],
+  ["29","Warren G. Harding"],
+  ["30","Calvin Coolidge"],
+  ["31","Herbert Hoover"],
+  ["32","Franklin D. Roosevelt"],
+  ["33","Harry S. Truman"],
+  ["34","Dwight D. Eisenhower"],
+  ["35","John F. Kennedy"],
+  ["36","Lyndon B. Johnson"],
+  ["37","Richard Nixon"],
+  ["38","Gerald Ford"],
+  ["39","Jimmy Carter"],
+  ["40","Ronald Reagan"],
+  ["41","George H. W. Bush"],
+  ["42","Bill Clinton"],
+  ["43","George W. Bush"],
+  ["44","Barack Obama"],
+  ["45","Donald Trump (2017–21)"],
+  ["46","Joe Biden"],
+  ["47","Donald Trump (2025–)"]]},
+ {name: "World capitals", dir: "both", cards: [
   ["France","Paris"],["Japan","Tokyo"],["Italy","Rome"],["Spain","Madrid"],
   ["Germany","Berlin"],["United Kingdom","London"],["Russia","Moscow"],
   ["China","Beijing"],["India","New Delhi"],["Canada","Ottawa"],
-  ["Australia","Canberra"],["Brazil","Bras\u00edlia"],["Mexico","Mexico City"],
+  ["Australia","Canberra"],["Brazil","Brasília"],["Mexico","Mexico City"],
   ["Egypt","Cairo"],["Turkey","Ankara"],["Greece","Athens"],
   ["Portugal","Lisbon"],["Netherlands","Amsterdam"],["Sweden","Stockholm"],
   ["Norway","Oslo"],["Denmark","Copenhagen"],["Finland","Helsinki"],
   ["Poland","Warsaw"],["Austria","Vienna"],["Switzerland","Bern"],
   ["Ireland","Dublin"],["South Korea","Seoul"],["Thailand","Bangkok"],
-  ["Argentina","Buenos Aires"],["Chile","Santiago"]]};
-function addExampleDeck(){
-  const d = {id: db.seq++, name: EXAMPLE_DECK.name, dir: "both", cards: []};
-  for (const p of EXAMPLE_DECK.cards)
+  ["Argentina","Buenos Aires"],["Chile","Santiago"]]},
+];
+function addExampleDeck(i){
+  const ex = EXAMPLE_DECKS[i];
+  const d = {id: db.seq++, name: ex.name, dir: ex.dir, cards: []};
+  for (const p of ex.cards)
     d.cards.push({id: db.seq++, front: p[0], back: p[1], reps: 0, interval: 0,
                   ease: EASE_START, lapses: 0, due: null, introduced: null});
   db.decks.push(d); save(); openDeck(d.id);
@@ -345,13 +396,14 @@ function showDecks(){
     r.onclick = startMixReview;
     box.appendChild(r);
   }
-  if (!db.decks.some(d => d.name === EXAMPLE_DECK.name)){
-    const ex = document.createElement("button");
-    ex.className = "btn quiet";
-    ex.textContent = "+ Add example deck: " + EXAMPLE_DECK.name;
-    ex.onclick = addExampleDeck;
-    box.appendChild(ex);
-  }
+  EXAMPLE_DECKS.forEach((ex, i) => {
+    if (db.decks.some(d => d.name === ex.name)) return;
+    const b = document.createElement("button");
+    b.className = "btn quiet";
+    b.textContent = "+ Add example deck: " + ex.name;
+    b.onclick = () => addExampleDeck(i);
+    box.appendChild(b);
+  });
   $("empty-hint").textContent = db.decks.length ? "" :
     "No decks yet — name one above to start. Try a few things you actually want to remember.";
 }

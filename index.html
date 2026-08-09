@@ -127,11 +127,11 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v10</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v11</span></p>
   </section>
 
   <section id="v-deck" class="hide">
-    <button class="crumb" onclick="showDecks()">&larr; Decks</button>
+    <button class="crumb" onclick="history.back()">&larr; Decks</button>
     <div id="deckhead"></div>
     <h2>Add cards</h2>
     <textarea id="bulk" placeholder="One per line:
@@ -281,6 +281,32 @@ const clozeA = s => esc(s).replace(CLOZE, (_, w) => '<span class="filled">' + w 
 
 // ---- views ------------------------------------------------------------
 let cur = null, editId = null;
+
+// Browser-history integration so swipe-back works: deeper views push a
+// real history entry, back buttons pop it, popstate renders without
+// re-pushing. Depth: decks(0) < deck(1) < edit/review(2).
+let navving = false;
+const NAV_DEPTH = {decks: 0, deck: 1, edit: 2, review: 2};
+function nav(st){
+  if (navving) return;
+  const prev = history.state || {v: "decks"};
+  if (prev.v === st.v && prev.id === st.id && prev.mix === st.mix) return;
+  if ((NAV_DEPTH[st.v] ?? 0) > (NAV_DEPTH[prev.v] ?? 0)) history.pushState(st, "");
+  else history.replaceState(st, "");
+}
+window.addEventListener("popstate", ev => {
+  navving = true;
+  const st = ev.state || {v: "decks"};
+  try {
+    if (st.v === "deck") openDeck(st.id);
+    else if (st.v === "edit") openEdit(st.id);
+    else if (st.v === "review"){ mixMode = !!st.mix; cur = st.id ?? null; show("v-review"); renderReview(); }
+    else showDecks();
+  } catch (err) { showDecks(); }
+  navving = false;
+});
+history.replaceState({v: "decks"}, "");
+
 const $ = id => document.getElementById(id);
 const show = v => {
   for (const s of ["v-decks","v-deck","v-edit","v-review"])
@@ -561,7 +587,7 @@ function addExampleDeck(i){
 }
 
 function showDecks(){
-  cur = null; show("v-decks");
+  cur = null; nav({v: "decks"}); show("v-decks");
   const box = $("decklist"); box.innerHTML = "";
   for (const d of db.decks){
     const [due, nw] = counts(d);
@@ -620,12 +646,13 @@ function deleteDeck(){
   if (!confirm('Delete "' + d.name + '" and its ' + d.cards.length + ' cards?')) return;
   for (const c of d.cards){ imgDel(c.imgF); imgDel(c.imgB); }
   db.decks = db.decks.filter(k => k !== d);
-  save(); showDecks();
+  save(); history.back();
 }
 
 function openDeck(id){
   cur = id; const d = deck();
   if (!d) return showDecks();
+  nav({v: "deck", id});
   show("v-deck");
   const [due, nw] = counts(d);
   const ready = due + nw > 0;
@@ -676,7 +703,7 @@ function bulkAdd(){
 
 // ---- card edit --------------------------------------------------------
 async function openEdit(id){
-  editId = id; show("v-edit");
+  editId = id; nav({v: "edit", id}); show("v-edit");
   const c = deck().cards.find(k => k.id === id);
   const [fImg, bImg] = await Promise.all([imgGet(c.imgF), imgGet(c.imgB)]);
   const side = (label, key, val, img) =>
@@ -734,7 +761,7 @@ function saveEdit(){
   if (front) c.front = front;
   c.back = back;
   c.extra = $("ed-X").value.trim();
-  save(); openDeck(cur);
+  save(); history.back();
 }
 
 function deleteCard(){
@@ -742,7 +769,7 @@ function deleteCard(){
   const d = deck(), c = d.cards.find(k => k.id === editId);
   imgDel(c.imgF); imgDel(c.imgB);
   d.cards = d.cards.filter(k => k !== c);
-  save(); openDeck(cur);
+  save(); history.back();
 }
 
 // Mastery = how far out the scheduler trusts you with this card.
@@ -774,9 +801,9 @@ function sides(c, dir){
     ? {q: c.back, a: c.front} : {q: c.front, a: c.back};
 }
 let mixMode = false, curC = null, curD = null;
-function startReview(){ mixMode = false; show("v-review"); renderReview(); }
-function startMixReview(){ mixMode = true; cur = null; show("v-review"); renderReview(); }
-function exitReview(){ if (mixMode) showDecks(); else openDeck(cur); }
+function startReview(){ mixMode = false; nav({v: "review", id: cur}); show("v-review"); renderReview(); }
+function startMixReview(){ mixMode = true; cur = null; nav({v: "review", mix: true}); show("v-review"); renderReview(); }
+function exitReview(){ history.back(); }
 
 async function renderReview(){
   const decks = mixMode ? db.decks : [deck()];

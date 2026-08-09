@@ -127,7 +127,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v7</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v8</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -152,7 +152,7 @@ The capital of France is {Paris}"></textarea>
   </section>
 
   <section id="v-review" class="hide">
-    <button class="crumb" onclick="openDeck(cur)">&larr; Back</button>
+    <button class="crumb" onclick="exitReview()">&larr; Back</button>
     <p class="meta" id="rcounts"></p>
     <div id="rface"></div>
   </section>
@@ -241,29 +241,32 @@ function counts(deck){
 const LAPSE_HOLD = 3;
 let dealt = 0;
 const held = new Map();   // card id -> dealt-count at which it's eligible again
-function deal(c){
-  dealt++; held.delete(c.id);
-  return c;
+function dealE(e){ dealt++; held.delete(e.c.id); return e; }
+function pickRandomE(pool){
+  return dealE(pool[Math.floor(Math.random() * pool.length)]);
 }
-function pickRandom(pool){
-  return deal(pool[Math.floor(Math.random() * pool.length)]);
-}
-function nextCard(deck){
+// Works across one deck or several: entries are {c: card, d: its deck}.
+function nextEntry(decks){
   const t = today();
-  const due = deck.cards.filter(c => c.due != null && c.due <= t);
-  const ready = due.filter(c => (held.get(c.id) ?? 0) <= dealt)
-                   .sort((a,b) => a.due - b.due);
+  const due = [];
+  for (const d of decks)
+    for (const c of d.cards) if (c.due != null && c.due <= t) due.push({c, d});
+  const ready = due.filter(e => (held.get(e.c.id) ?? 0) <= dealt)
+                   .sort((a,b) => a.c.due - b.c.due);
   if (ready.length){
     // random among the most-overdue tie group, so same-day cards
     // don't replay in list order
-    return pickRandom(ready.filter(c => c.due === ready[0].due));
+    return pickRandomE(ready.filter(e => e.c.due === ready[0].c.due));
   }
-  if (counts(deck)[1] > 0)
-    return pickRandom(deck.cards.filter(c => c.due == null));
+  const fresh = [];
+  for (const d of decks)
+    if (counts(d)[1] > 0)      // per-deck new-card cap still applies
+      for (const c of d.cards) if (c.due == null) fresh.push({c, d});
+  if (fresh.length) return pickRandomE(fresh);
   if (due.length){
     // nothing left but held lapses — show the one eligible soonest
-    due.sort((a,b) => (held.get(a.id) ?? 0) - (held.get(b.id) ?? 0));
-    return deal(due[0]);
+    due.sort((a,b) => (held.get(a.c.id) ?? 0) - (held.get(b.c.id) ?? 0));
+    return dealE(due[0]);
   }
   return null;
 }
@@ -286,6 +289,25 @@ const show = v => {
   scrollTo(0, 0);
 };
 const deck = () => db.decks.find(d => d.id === cur);
+
+const EXAMPLE_DECK = {name: "World capitals", cards: [
+  ["France","Paris"],["Japan","Tokyo"],["Italy","Rome"],["Spain","Madrid"],
+  ["Germany","Berlin"],["United Kingdom","London"],["Russia","Moscow"],
+  ["China","Beijing"],["India","New Delhi"],["Canada","Ottawa"],
+  ["Australia","Canberra"],["Brazil","Bras\u00edlia"],["Mexico","Mexico City"],
+  ["Egypt","Cairo"],["Turkey","Ankara"],["Greece","Athens"],
+  ["Portugal","Lisbon"],["Netherlands","Amsterdam"],["Sweden","Stockholm"],
+  ["Norway","Oslo"],["Denmark","Copenhagen"],["Finland","Helsinki"],
+  ["Poland","Warsaw"],["Austria","Vienna"],["Switzerland","Bern"],
+  ["Ireland","Dublin"],["South Korea","Seoul"],["Thailand","Bangkok"],
+  ["Argentina","Buenos Aires"],["Chile","Santiago"]]};
+function addExampleDeck(){
+  const d = {id: db.seq++, name: EXAMPLE_DECK.name, dir: "both", cards: []};
+  for (const p of EXAMPLE_DECK.cards)
+    d.cards.push({id: db.seq++, front: p[0], back: p[1], reps: 0, interval: 0,
+                  ease: EASE_START, lapses: 0, due: null, introduced: null});
+  db.decks.push(d); save(); openDeck(d.id);
+}
 
 function showDecks(){
   cur = null; show("v-decks");
@@ -312,6 +334,23 @@ function showDecks(){
       wrap.appendChild(r);
     }
     box.appendChild(wrap);
+  }
+  const tot = [0, 0];
+  for (const d of db.decks){ const n = counts(d); tot[0] += n[0]; tot[1] += n[1]; }
+  if (db.decks.filter(d => d.cards.length).length > 1 && tot[0] + tot[1] > 0){
+    const r = document.createElement("button");
+    r.className = "btn primary"; r.style.width = "100%"; r.style.marginBottom = "10px";
+    r.textContent = "Review all decks · " + (tot[0] ? tot[0] + " due" : "") +
+      (tot[0] && tot[1] ? ", " : "") + (tot[1] ? tot[1] + " new" : "");
+    r.onclick = startMixReview;
+    box.appendChild(r);
+  }
+  if (!db.decks.some(d => d.name === EXAMPLE_DECK.name)){
+    const ex = document.createElement("button");
+    ex.className = "btn quiet";
+    ex.textContent = "+ Add example deck: " + EXAMPLE_DECK.name;
+    ex.onclick = addExampleDeck;
+    box.appendChild(ex);
   }
   $("empty-hint").textContent = db.decks.length ? "" :
     "No decks yet — name one above to start. Try a few things you actually want to remember.";
@@ -478,33 +517,40 @@ function sides(c, dir){
   return (dir === "bf" && c.back && !isCloze(c.front))
     ? {q: c.back, a: c.front} : {q: c.front, a: c.back};
 }
-function startReview(){ show("v-review"); renderReview(); }
+let mixMode = false, curC = null, curD = null;
+function startReview(){ mixMode = false; show("v-review"); renderReview(); }
+function startMixReview(){ mixMode = true; cur = null; show("v-review"); renderReview(); }
+function exitReview(){ if (mixMode) showDecks(); else openDeck(cur); }
 
 async function renderReview(){
-  const d = deck();
-  const c = nextCard(d);
-  const [due, nw] = counts(d);
+  const decks = mixMode ? db.decks : [deck()];
+  const e = nextEntry(decks);
+  let due = 0, nw = 0;
+  for (const k of decks){ const n = counts(k); due += n[0]; nw += n[1]; }
   $("rcounts").textContent = due + " due" + (nw ? " · " + nw + " new" : "");
   const face = $("rface"), bar = $("gradebtns");
-  if (!c){
+  if (!e){
     face.innerHTML = '<div class="done"><p class="big">Done for today</p>' +
-      '<p>Nothing due in ' + esc(d.name) + '. Come back tomorrow.</p></div>';
-    bar.innerHTML = '<button class="btn" onclick="openDeck(cur)">Back to deck</button>';
+      '<p>Nothing due in ' + (mixMode ? "any deck" : esc(deck().name)) +
+      '. Come back tomorrow.</p></div>';
+    bar.innerHTML = '<button class="btn" onclick="exitReview()">Back</button>';
     return;
   }
+  const c = curC = e.c, d = curD = e.d;
   const dd = deckDir(d);
   curDir = dd === "both" ? (Math.random() < 0.5 ? "bf" : "fb") : dd;
   const cz = isCloze(c.front);
   const s = sides(c, curDir);
   const qImg = await imgGet(s.q === c.front ? c.imgF : c.imgB);
-  face.innerHTML = '<div class="face"><p class="q">' +
+  face.innerHTML = '<div class="face">' +
+    (mixMode ? '<p class="note">' + esc(d.name) + '</p>' : '') + '<p class="q">' +
     (cz ? clozeQ(c.front) : esc(s.q)) + '</p>' +
     (qImg ? '<img src="' + qImg + '" alt="">' : '') + '</div>';
-  bar.innerHTML = '<button class="g-show" onclick="reveal(' + c.id + ')">Show answer</button>';
+  bar.innerHTML = '<button class="g-show" onclick="reveal()">Show answer</button>';
 }
 
-async function reveal(id){
-  const d = deck(), c = d.cards.find(k => k.id === id);
+async function reveal(){
+  const c = curC;
   const [fImg, bImg] = await Promise.all([imgGet(c.imgF), imgGet(c.imgB)]);
   const cz = isCloze(c.front);
   const s = sides(c, curDir);
@@ -519,13 +565,13 @@ async function reveal(id){
     (fImg ? '<img src="' + fImg + '" alt="">' : '') +
     (bImg ? '<img src="' + bImg + '" alt="">' : '') + '</div>';
   $("gradebtns").innerHTML =
-    '<button class="g-again" onclick="doGrade(' + c.id + ',\'again\')">Again</button>' +
-    '<button class="g-good" onclick="doGrade(' + c.id + ',\'good\')">Good</button>' +
-    '<button class="g-easy" onclick="doGrade(' + c.id + ',\'easy\')">Easy</button>';
+    '<button class="g-again" onclick="doGrade(\'again\')">Again</button>' +
+    '<button class="g-good" onclick="doGrade(\'good\')">Good</button>' +
+    '<button class="g-easy" onclick="doGrade(\'easy\')">Easy</button>';
 }
 
-function doGrade(id, g){
-  gradeCard(deck().cards.find(k => k.id === id), g);
+function doGrade(g){
+  gradeCard(curC, g);
   renderReview();
 }
 

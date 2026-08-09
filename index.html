@@ -227,13 +227,24 @@ function counts(deck){
   const intro = deck.cards.filter(c => c.introduced === t).length;
   return [due, Math.max(0, Math.min(newTotal, NEW_PER_DAY - intro))];
 }
+let lastShownId = null;
+function pickRandom(pool){
+  if (pool.length > 1) pool = pool.filter(c => c.id !== lastShownId);
+  const c = pool[Math.floor(Math.random() * pool.length)];
+  lastShownId = c.id;
+  return c;
+}
 function nextCard(deck){
   const t = today();
   const due = deck.cards.filter(c => c.due != null && c.due <= t)
-                        .sort((a,b) => a.due - b.due || a.id - b.id);
-  if (due.length) return due[0];
+                        .sort((a,b) => a.due - b.due);
+  if (due.length){
+    // random among the most-overdue tie group, so same-day cards
+    // (and "again" re-queues) don't replay in list order
+    return pickRandom(due.filter(c => c.due === due[0].due));
+  }
   if (counts(deck)[1] > 0)
-    return deck.cards.filter(c => c.due == null).sort((a,b) => a.id - b.id)[0];
+    return pickRandom(deck.cards.filter(c => c.due == null));
   return null;
 }
 

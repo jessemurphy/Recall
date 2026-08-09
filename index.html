@@ -127,7 +127,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v9</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v10</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -292,71 +292,271 @@ const deck = () => db.decks.find(d => d.id === cur);
 
 const EXAMPLE_DECKS = [
  {name: "US presidents", dir: "both", cards: [
-  ["1","George Washington"],
-  ["2","John Adams"],
-  ["3","Thomas Jefferson"],
-  ["4","James Madison"],
-  ["5","James Monroe"],
-  ["6","John Quincy Adams"],
-  ["7","Andrew Jackson"],
-  ["8","Martin Van Buren"],
-  ["9","William Henry Harrison"],
-  ["10","John Tyler"],
-  ["11","James K. Polk"],
-  ["12","Zachary Taylor"],
-  ["13","Millard Fillmore"],
-  ["14","Franklin Pierce"],
-  ["15","James Buchanan"],
-  ["16","Abraham Lincoln"],
-  ["17","Andrew Johnson"],
-  ["18","Ulysses S. Grant"],
-  ["19","Rutherford B. Hayes"],
-  ["20","James A. Garfield"],
-  ["21","Chester A. Arthur"],
-  ["22","Grover Cleveland (1885–89)"],
-  ["23","Benjamin Harrison"],
-  ["24","Grover Cleveland (1893–97)"],
-  ["25","William McKinley"],
-  ["26","Theodore Roosevelt"],
-  ["27","William Howard Taft"],
-  ["28","Woodrow Wilson"],
-  ["29","Warren G. Harding"],
-  ["30","Calvin Coolidge"],
-  ["31","Herbert Hoover"],
-  ["32","Franklin D. Roosevelt"],
-  ["33","Harry S. Truman"],
-  ["34","Dwight D. Eisenhower"],
-  ["35","John F. Kennedy"],
-  ["36","Lyndon B. Johnson"],
-  ["37","Richard Nixon"],
-  ["38","Gerald Ford"],
-  ["39","Jimmy Carter"],
-  ["40","Ronald Reagan"],
-  ["41","George H. W. Bush"],
-  ["42","Bill Clinton"],
-  ["43","George W. Bush"],
-  ["44","Barack Obama"],
-  ["45","Donald Trump (2017–21)"],
-  ["46","Joe Biden"],
-  ["47","Donald Trump (2025–)"]]},
+  ["1","George Washington","Independent \u00b7 1789\u201397"],
+  ["2","John Adams","Federalist \u00b7 1797\u20131801"],
+  ["3","Thomas Jefferson","Democratic-Republican \u00b7 1801\u201309"],
+  ["4","James Madison","Democratic-Republican \u00b7 1809\u201317"],
+  ["5","James Monroe","Democratic-Republican \u00b7 1817\u201325"],
+  ["6","John Quincy Adams","Democratic-Republican \u00b7 1825\u201329"],
+  ["7","Andrew Jackson","Democratic \u00b7 1829\u201337"],
+  ["8","Martin Van Buren","Democratic \u00b7 1837\u201341"],
+  ["9","William Henry Harrison","Whig \u00b7 1841"],
+  ["10","John Tyler","Whig \u00b7 1841\u201345"],
+  ["11","James K. Polk","Democratic \u00b7 1845\u201349"],
+  ["12","Zachary Taylor","Whig \u00b7 1849\u201350"],
+  ["13","Millard Fillmore","Whig \u00b7 1850\u201353"],
+  ["14","Franklin Pierce","Democratic \u00b7 1853\u201357"],
+  ["15","James Buchanan","Democratic \u00b7 1857\u201361"],
+  ["16","Abraham Lincoln","Republican \u00b7 1861\u201365"],
+  ["17","Andrew Johnson","National Union \u00b7 1865\u201369"],
+  ["18","Ulysses S. Grant","Republican \u00b7 1869\u201377"],
+  ["19","Rutherford B. Hayes","Republican \u00b7 1877\u201381"],
+  ["20","James A. Garfield","Republican \u00b7 1881"],
+  ["21","Chester A. Arthur","Republican \u00b7 1881\u201385"],
+  ["22","Grover Cleveland (1885\u201389)","Democratic \u00b7 1885\u201389"],
+  ["23","Benjamin Harrison","Republican \u00b7 1889\u201393"],
+  ["24","Grover Cleveland (1893\u201397)","Democratic \u00b7 1893\u201397"],
+  ["25","William McKinley","Republican \u00b7 1897\u20131901"],
+  ["26","Theodore Roosevelt","Republican \u00b7 1901\u201309"],
+  ["27","William Howard Taft","Republican \u00b7 1909\u201313"],
+  ["28","Woodrow Wilson","Democratic \u00b7 1913\u201321"],
+  ["29","Warren G. Harding","Republican \u00b7 1921\u201323"],
+  ["30","Calvin Coolidge","Republican \u00b7 1923\u201329"],
+  ["31","Herbert Hoover","Republican \u00b7 1929\u201333"],
+  ["32","Franklin D. Roosevelt","Democratic \u00b7 1933\u201345"],
+  ["33","Harry S. Truman","Democratic \u00b7 1945\u201353"],
+  ["34","Dwight D. Eisenhower","Republican \u00b7 1953\u201361"],
+  ["35","John F. Kennedy","Democratic \u00b7 1961\u201363"],
+  ["36","Lyndon B. Johnson","Democratic \u00b7 1963\u201369"],
+  ["37","Richard Nixon","Republican \u00b7 1969\u201374"],
+  ["38","Gerald Ford","Republican \u00b7 1974\u201377"],
+  ["39","Jimmy Carter","Democratic \u00b7 1977\u201381"],
+  ["40","Ronald Reagan","Republican \u00b7 1981\u201389"],
+  ["41","George H. W. Bush","Republican \u00b7 1989\u201393"],
+  ["42","Bill Clinton","Democratic \u00b7 1993\u20132001"],
+  ["43","George W. Bush","Republican \u00b7 2001\u201309"],
+  ["44","Barack Obama","Democratic \u00b7 2009\u201317"],
+  ["45","Donald Trump (2017\u201321)","Republican \u00b7 2017\u201321"],
+  ["46","Joe Biden","Democratic \u00b7 2021\u201325"],
+  ["47","Donald Trump (2025\u2013)","Republican \u00b7 2025\u2013"]]},
  {name: "World capitals", dir: "both", cards: [
-  ["France","Paris"],["Japan","Tokyo"],["Italy","Rome"],["Spain","Madrid"],
-  ["Germany","Berlin"],["United Kingdom","London"],["Russia","Moscow"],
-  ["China","Beijing"],["India","New Delhi"],["Canada","Ottawa"],
-  ["Australia","Canberra"],["Brazil","Brasília"],["Mexico","Mexico City"],
-  ["Egypt","Cairo"],["Turkey","Ankara"],["Greece","Athens"],
-  ["Portugal","Lisbon"],["Netherlands","Amsterdam"],["Sweden","Stockholm"],
-  ["Norway","Oslo"],["Denmark","Copenhagen"],["Finland","Helsinki"],
-  ["Poland","Warsaw"],["Austria","Vienna"],["Switzerland","Bern"],
-  ["Ireland","Dublin"],["South Korea","Seoul"],["Thailand","Bangkok"],
-  ["Argentina","Buenos Aires"],["Chile","Santiago"]]},
+  ["France","Paris"],
+  ["Japan","Tokyo"],
+  ["Italy","Rome"],
+  ["Spain","Madrid"],
+  ["Germany","Berlin"],
+  ["United Kingdom","London"],
+  ["Russia","Moscow"],
+  ["China","Beijing"],
+  ["India","New Delhi"],
+  ["Canada","Ottawa"],
+  ["Australia","Canberra"],
+  ["Brazil","Bras\u00edlia"],
+  ["Mexico","Mexico City"],
+  ["Egypt","Cairo"],
+  ["Turkey","Ankara"],
+  ["Greece","Athens"],
+  ["Portugal","Lisbon"],
+  ["Netherlands","Amsterdam"],
+  ["Sweden","Stockholm"],
+  ["Norway","Oslo"],
+  ["Denmark","Copenhagen"],
+  ["Finland","Helsinki"],
+  ["Poland","Warsaw"],
+  ["Austria","Vienna"],
+  ["Switzerland","Bern"],
+  ["Ireland","Dublin"],
+  ["South Korea","Seoul"],
+  ["Thailand","Bangkok"],
+  ["Argentina","Buenos Aires"],
+  ["Chile","Santiago"]]},
+ {name: "US state capitals", dir: "both", cards: [
+  ["Alabama","Montgomery"],
+  ["Alaska","Juneau"],
+  ["Arizona","Phoenix"],
+  ["Arkansas","Little Rock"],
+  ["California","Sacramento"],
+  ["Colorado","Denver"],
+  ["Connecticut","Hartford"],
+  ["Delaware","Dover"],
+  ["Florida","Tallahassee"],
+  ["Georgia","Atlanta"],
+  ["Hawaii","Honolulu"],
+  ["Idaho","Boise"],
+  ["Illinois","Springfield"],
+  ["Indiana","Indianapolis"],
+  ["Iowa","Des Moines"],
+  ["Kansas","Topeka"],
+  ["Kentucky","Frankfort"],
+  ["Louisiana","Baton Rouge"],
+  ["Maine","Augusta"],
+  ["Maryland","Annapolis"],
+  ["Massachusetts","Boston"],
+  ["Michigan","Lansing"],
+  ["Minnesota","St. Paul"],
+  ["Mississippi","Jackson"],
+  ["Missouri","Jefferson City"],
+  ["Montana","Helena"],
+  ["Nebraska","Lincoln"],
+  ["Nevada","Carson City"],
+  ["New Hampshire","Concord"],
+  ["New Jersey","Trenton"],
+  ["New Mexico","Santa Fe"],
+  ["New York","Albany"],
+  ["North Carolina","Raleigh"],
+  ["North Dakota","Bismarck"],
+  ["Ohio","Columbus"],
+  ["Oklahoma","Oklahoma City"],
+  ["Oregon","Salem"],
+  ["Pennsylvania","Harrisburg"],
+  ["Rhode Island","Providence"],
+  ["South Carolina","Columbia"],
+  ["South Dakota","Pierre"],
+  ["Tennessee","Nashville"],
+  ["Texas","Austin"],
+  ["Utah","Salt Lake City"],
+  ["Vermont","Montpelier"],
+  ["Virginia","Richmond"],
+  ["Washington","Olympia"],
+  ["West Virginia","Charleston"],
+  ["Wisconsin","Madison"],
+  ["Wyoming","Cheyenne"]]},
+ {name: "Element symbols", dir: "both", cards: [
+  ["H","Hydrogen"],
+  ["He","Helium"],
+  ["Li","Lithium"],
+  ["Be","Beryllium"],
+  ["B","Boron"],
+  ["C","Carbon"],
+  ["N","Nitrogen"],
+  ["O","Oxygen"],
+  ["F","Fluorine"],
+  ["Ne","Neon"],
+  ["Na","Sodium"],
+  ["Mg","Magnesium"],
+  ["Al","Aluminum"],
+  ["Si","Silicon"],
+  ["P","Phosphorus"],
+  ["S","Sulfur"],
+  ["Cl","Chlorine"],
+  ["Ar","Argon"],
+  ["K","Potassium"],
+  ["Ca","Calcium"],
+  ["Sc","Scandium"],
+  ["Ti","Titanium"],
+  ["V","Vanadium"],
+  ["Cr","Chromium"],
+  ["Mn","Manganese"],
+  ["Fe","Iron"],
+  ["Co","Cobalt"],
+  ["Ni","Nickel"],
+  ["Cu","Copper"],
+  ["Zn","Zinc"],
+  ["Ga","Gallium"],
+  ["Ge","Germanium"],
+  ["As","Arsenic"],
+  ["Se","Selenium"],
+  ["Br","Bromine"],
+  ["Kr","Krypton"],
+  ["Ag","Silver"],
+  ["Sn","Tin"],
+  ["I","Iodine"],
+  ["Xe","Xenon"],
+  ["W","Tungsten"],
+  ["Pt","Platinum"],
+  ["Au","Gold"],
+  ["Hg","Mercury"],
+  ["Pb","Lead"],
+  ["U","Uranium"]]},
+ {name: "Constitutional amendments", dir: "both", cards: [
+  ["1st","Freedom of religion, speech, press, assembly, petition"],
+  ["2nd","Right to keep and bear arms"],
+  ["3rd","No quartering of soldiers in homes"],
+  ["4th","No unreasonable searches and seizures"],
+  ["5th","Due process; no self-incrimination or double jeopardy"],
+  ["6th","Speedy public trial by jury; right to counsel"],
+  ["7th","Jury trial in civil cases"],
+  ["8th","No cruel and unusual punishment or excessive bail"],
+  ["9th","Rights not listed are still retained by the people"],
+  ["10th","Powers not delegated are reserved to the states"],
+  ["11th","Limits suits against states (sovereign immunity)"],
+  ["12th","Separate electoral votes for President and Vice President"],
+  ["13th","Abolished slavery"],
+  ["14th","Citizenship, equal protection, due process in the states"],
+  ["15th","Right to vote regardless of race"],
+  ["16th","Federal income tax"],
+  ["17th","Direct election of senators"],
+  ["18th","Prohibition of alcohol"],
+  ["19th","Women's right to vote"],
+  ["20th","Moved term start to January 20 (lame duck)"],
+  ["21st","Repealed Prohibition"],
+  ["22nd","Two-term limit for President"],
+  ["23rd","Electoral votes for Washington, D.C."],
+  ["24th","Banned poll taxes in federal elections"],
+  ["25th","Presidential succession and disability"],
+  ["26th","Right to vote at age 18"],
+  ["27th","Congressional pay changes wait until the next election"]]},
+ {name: "Greek to Roman gods", dir: "both", cards: [
+  ["Zeus","Jupiter"],
+  ["Hera","Juno"],
+  ["Poseidon","Neptune"],
+  ["Hades","Pluto"],
+  ["Athena","Minerva"],
+  ["Ares","Mars"],
+  ["Aphrodite","Venus"],
+  ["Artemis","Diana"],
+  ["Hermes","Mercury"],
+  ["Hephaestus","Vulcan"],
+  ["Demeter","Ceres"],
+  ["Dionysus","Bacchus"],
+  ["Persephone","Proserpina"],
+  ["Eros","Cupid"],
+  ["Nike","Victoria"],
+  ["Cronus","Saturn"],
+  ["Helios","Sol"],
+  ["Selene","Luna"],
+  ["Tyche","Fortuna"],
+  ["Pan","Faunus"],
+  ["Hestia","Vesta"]]},
+ {name: "Spanish starter words", dir: "both", cards: [
+  ["hola","hello"],
+  ["adi\u00f3s","goodbye"],
+  ["gracias","thank you"],
+  ["por favor","please"],
+  ["agua","water"],
+  ["comida","food"],
+  ["casa","house"],
+  ["perro","dog"],
+  ["gato","cat"],
+  ["libro","book"],
+  ["d\u00eda","day"],
+  ["noche","night"],
+  ["hombre","man"],
+  ["mujer","woman"],
+  ["ni\u00f1o","child"],
+  ["amigo","friend"],
+  ["familia","family"],
+  ["trabajo","work"],
+  ["ciudad","city"],
+  ["pa\u00eds","country"],
+  ["coche","car"],
+  ["calle","street"],
+  ["dinero","money"],
+  ["feliz","happy"],
+  ["triste","sad"],
+  ["grande","big"],
+  ["peque\u00f1o","small"],
+  ["siempre","always"],
+  ["nunca","never"],
+  ["tiempo","time"]]},
 ];
 function addExampleDeck(i){
   const ex = EXAMPLE_DECKS[i];
   const d = {id: db.seq++, name: ex.name, dir: ex.dir, cards: []};
   for (const p of ex.cards)
-    d.cards.push({id: db.seq++, front: p[0], back: p[1], reps: 0, interval: 0,
-                  ease: EASE_START, lapses: 0, due: null, introduced: null});
+    d.cards.push({id: db.seq++, front: p[0], back: p[1], extra: p[2] || "",
+                  reps: 0, interval: 0, ease: EASE_START, lapses: 0,
+                  due: null, introduced: null});
   db.decks.push(d); save(); openDeck(d.id);
 }
 
@@ -457,11 +657,12 @@ function openDeck(id){
 function bulkAdd(){
   const d = deck(); let added = 0;
   for (const line of $("bulk").value.split("\n")){
-    const i = line.indexOf("|");
-    const front = (i < 0 ? line : line.slice(0, i)).trim();
-    const back = i < 0 ? "" : line.slice(i + 1).trim();
+    const parts = line.split("|");
+    const front = (parts[0] || "").trim();
+    const back = (parts[1] || "").trim();
+    const extra = parts.slice(2).join("|").trim();
     if (front && (back || isCloze(front))){
-      d.cards.push({id: db.seq++, front, back, reps: 0, interval: 0,
+      d.cards.push({id: db.seq++, front, back, extra, reps: 0, interval: 0,
                     ease: EASE_START, lapses: 0, due: null, introduced: null,
                     imgF: null, imgB: null});
       added++;
@@ -470,7 +671,7 @@ function bulkAdd(){
   save();
   if (added){ $("bulk").value = ""; openDeck(cur);
     $("addmsg").textContent = "Added " + added + " card" + (added === 1 ? "" : "s") + ".";
-  } else $("addmsg").textContent = "Use front | back, or a {hidden part}.";
+  } else $("addmsg").textContent = "Use front | back (| extra), or a {hidden part}.";
 }
 
 // ---- card edit --------------------------------------------------------
@@ -493,6 +694,8 @@ async function openEdit(id){
   $("editbody").innerHTML =
     side("Front — {braces} for a cloze", "F", c.front, fImg) +
     side(isCloze(c.front) ? "Note (optional)" : "Back", "B", c.back, bImg) +
+    '<h2>Extra — shown after the answer, never asked</h2>' +
+    '<textarea id="ed-X" rows="2">' + esc(c.extra || "") + '</textarea>' +
     '<div class="row" style="margin-top:18px">' +
       '<button class="btn primary" onclick="saveEdit()">Save</button>' +
       '<button class="btn quiet danger" style="margin-left:auto" onclick="deleteCard()">Delete card</button>' +
@@ -530,6 +733,7 @@ function saveEdit(){
   const front = $("ed-F").value.trim(), back = $("ed-B").value.trim();
   if (front) c.front = front;
   c.back = back;
+  c.extra = $("ed-X").value.trim();
   save(); openDeck(cur);
 }
 
@@ -611,7 +815,8 @@ async function reveal(){
     inner = '<p class="q">' + clozeA(c.front) + '</p>' +
       (c.back ? '<p class="note">' + esc(c.back) + '</p>' : '');
   } else {
-    inner = '<p class="q">' + esc(s.q) + '</p><p class="a">' + esc(s.a) + '</p>';
+    inner = '<p class="q">' + esc(s.q) + '</p><p class="a">' + esc(s.a) + '</p>' +
+      (c.extra ? '<p class="note">' + esc(c.extra) + '</p>' : '');
   }
   $("rface").innerHTML = '<div class="face">' + inner +
     (fImg ? '<img src="' + fImg + '" alt="">' : '') +

@@ -143,7 +143,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v19</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v20</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -311,12 +311,11 @@ function nextEntry(decks){
   const due = [];
   for (const d of decks)
     for (const c of d.cards) if (c.due != null && c.due <= t) due.push({c, d});
-  const ready = due.filter(e => (held.get(e.c.id) ?? 0) <= dealt)
-                   .sort((a,b) => a.c.due - b.c.due);
+  const ready = due.filter(e => (held.get(e.c.id) ?? 0) <= dealt);
   if (ready.length){
-    // random among the most-overdue tie group, so same-day cards
-    // don't replay in list order
-    return pickRandomE(ready.filter(e => e.c.due === ready[0].c.due));
+    // every currently-due card shuffles as one pool — no clustering by
+    // deck or by which day a card fell due
+    return pickRandomE(ready);
   }
   const fresh = [];
   for (const d of decks)

@@ -72,6 +72,18 @@ textarea{min-height:96px}
   font-variant-numeric:tabular-nums}
 .srt{font-size:13.5px;padding:7px 12px}
 .srt.on{color:var(--accent);border-color:var(--accent);font-weight:700}
+.undo{border:none;background:none;color:var(--accent);font-size:13px;
+  padding:0 4px;font-weight:600}
+.bars{display:flex;align-items:flex-end;gap:2px;height:72px}
+.bars span{flex:1;background:var(--accent);border-radius:2px}
+.bars span.z{background:var(--rule)}
+.statline{margin:4px 0 0;font-variant-numeric:tabular-nums}
+.stk{margin-bottom:12px}
+.stk-t{font-size:14.5px;font-weight:600;margin-bottom:4px}
+.pbar{height:8px;background:var(--wash);border:1px solid var(--rule);
+  border-radius:4px;display:flex;overflow:hidden}
+.pbar .s{background:var(--accent)}
+.pbar .l{background:var(--easy)}
 .face{background:var(--card);border:1px solid var(--rule);border-radius:16px;
   min-height:240px;padding:30px 22px;margin:14px 0;display:flex;
   flex-direction:column;justify-content:center;align-items:center;
@@ -126,6 +138,7 @@ textarea{min-height:96px}
       <button class="btn primary" onclick="addDeck()">Create</button>
     </div>
     <p class="hint" id="empty-hint"></p>
+    <div class="row"><button class="btn quiet" onclick="openStats()">&#128202; Stats</button></div>
     <h2>Backup</h2>
     <div class="row">
       <button class="btn quiet" onclick="exportAll()">Export backup</button>
@@ -136,7 +149,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v14</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v15</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -163,6 +176,11 @@ The capital of France is {Paris}"></textarea>
   <section id="v-edit" class="hide">
     <button class="crumb" onclick="openDeck(cur)">&larr; Back</button>
     <div id="editbody"></div>
+  </section>
+
+  <section id="v-stats" class="hide">
+    <button class="crumb" onclick="history.back()">&larr; Decks</button>
+    <div id="statsbody"></div>
   </section>
 
   <section id="v-review" class="hide">
@@ -239,6 +257,9 @@ function gradeCard(c, g){
     }
     c.reps++; c.due = t + Math.max(1, Math.round(c.interval));
   }
+  db.stats ??= {};
+  const _day = db.stats[t] ??= {n: 0, right: 0};
+  _day.n++; if (g !== "again") _day.right++;
   if (c.introduced == null) c.introduced = t;
   save();
 }
@@ -300,7 +321,7 @@ let cur = null, editId = null;
 // real history entry, back buttons pop it, popstate renders without
 // re-pushing. Depth: decks(0) < deck(1) < edit/review(2).
 let navving = false;
-const NAV_DEPTH = {decks: 0, deck: 1, edit: 2, review: 2};
+const NAV_DEPTH = {decks: 0, deck: 1, edit: 2, review: 2, stats: 1};
 function nav(st){
   if (navving) return;
   const prev = history.state || {v: "decks"};
@@ -313,6 +334,7 @@ window.addEventListener("popstate", ev => {
   const st = ev.state || {v: "decks"};
   try {
     if (st.v === "deck") openDeck(st.id);
+    else if (st.v === "stats") openStats();
     else if (st.v === "edit") openEdit(st.id);
     else if (st.v === "review"){ mixMode = !!st.mix; cur = st.id ?? null; show("v-review"); renderReview(); }
     else showDecks();
@@ -323,7 +345,7 @@ history.replaceState({v: "decks"}, "");
 
 const $ = id => document.getElementById(id);
 const show = v => {
-  for (const s of ["v-decks","v-deck","v-edit","v-review"])
+  for (const s of ["v-decks","v-deck","v-edit","v-review","v-stats"])
     $(s).classList.toggle("hide", s !== v);
   $("gradebar").classList.toggle("hide", v !== "v-review");
   scrollTo(0, 0);
@@ -864,8 +886,66 @@ function sides(c, dir){
     ? {q: c.back, a: c.front} : {q: c.front, a: c.back};
 }
 let mixMode = false, curC = null, curD = null;
-function startReview(){ mixMode = false; nav({v: "review", id: cur}); show("v-review"); renderReview(); }
-function startMixReview(){ mixMode = true; cur = null; nav({v: "review", mix: true}); show("v-review"); renderReview(); }
+let undoState = null;
+const sessionLog = [];
+function openStats(){
+  nav({v: "stats"});
+  show("v-stats");
+  const t = today(), S = db.stats || {};
+  const has = d => S[d] && S[d].n > 0;
+  let streak = 0;
+  for (let d = has(t) ? t : t - 1; has(d); d--) streak++;
+  const days = Object.keys(S).map(Number).sort((a, b) => a - b);
+  let best = 0, run = 0, prevD = null;
+  for (const d of days){
+    if (!has(d)){ prevD = null; continue; }
+    run = (prevD === d - 1) ? run + 1 : 1;
+    if (run > best) best = run;
+    prevD = d;
+  }
+  best = Math.max(best, streak);
+  let nAll = 0, rAll = 0, n7 = 0, r7 = 0;
+  for (const d of days){
+    nAll += S[d].n; rAll += S[d].right;
+    if (d > t - 7){ n7 += S[d].n; r7 += S[d].right; }
+  }
+  const pct = (r, n) => n ? Math.round(100 * r / n) + "%" : "—";
+  let max = 1;
+  for (let d = t - 29; d <= t; d++) max = Math.max(max, (S[d] || {}).n || 0);
+  let bars = "";
+  for (let d = t - 29; d <= t; d++){
+    const v = (S[d] || {}).n || 0;
+    bars += '<span style="height:' + Math.max(4, Math.round(100 * v / max)) +
+      '%"' + (v ? "" : ' class="z"') + '></span>';
+  }
+  let decksHtml = "";
+  for (const d of sortedDecks()){
+    if (!d.cards.length) continue;
+    let nw = 0, learn = 0, solid = 0;
+    for (const c of d.cards){
+      if (c.due == null) nw++;
+      else if (Math.round(c.interval) >= 21) solid++;
+      else learn++;
+    }
+    const n = d.cards.length;
+    decksHtml += '<div class="stk"><div class="stk-t">' + esc(d.name) +
+      ' <span class="hint">' + solid + ' solid · ' + learn +
+      ' learning · ' + nw + ' new</span></div>' +
+      '<div class="pbar"><i class="s" style="width:' + (100 * solid / n) +
+      '%"></i><i class="l" style="width:' + (100 * learn / n) + '%"></i></div></div>';
+  }
+  $("statsbody").innerHTML =
+    '<h2 style="margin-top:6px">Streak</h2>' +
+    '<p class="statline"><b>' + streak + '</b> day' + (streak === 1 ? "" : "s") +
+    ' current · best ' + best + '</p>' +
+    '<h2>Last 30 days</h2><div class="bars">' + bars + '</div>' +
+    '<h2>Retention</h2>' +
+    '<p class="statline">' + pct(r7, n7) + ' this week · ' + pct(rAll, nAll) +
+    ' all time · ' + nAll + ' answer' + (nAll === 1 ? "" : "s") + ' recorded</p>' +
+    '<h2>Decks</h2>' + (decksHtml || '<p class="hint">No cards yet.</p>');
+}
+function startReview(){ mixMode = false; undoState = null; sessionLog.length = 0; nav({v: "review", id: cur}); show("v-review"); renderReview(); }
+function startMixReview(){ mixMode = true; cur = null; undoState = null; sessionLog.length = 0; nav({v: "review", mix: true}); show("v-review"); renderReview(); }
 function exitReview(){ history.back(); }
 
 async function renderReview(){
@@ -873,12 +953,27 @@ async function renderReview(){
   const e = nextEntry(decks);
   let due = 0, nw = 0;
   for (const k of decks){ const n = counts(k); due += n[0]; nw += n[1]; }
-  $("rcounts").textContent = due + " due" + (nw ? " · " + nw + " new" : "");
+  $("rcounts").innerHTML = due + " due" + (nw ? " · " + nw + " new" : "") +
+    (undoState ? ' · <button class="undo" onclick="undoGrade()">&#8617; undo</button>' : "");
   const face = $("rface"), bar = $("gradebtns");
   if (!e){
-    face.innerHTML = '<div class="done"><p class="big">Done for today</p>' +
-      '<p>Nothing due in ' + (mixMode ? "any deck" : esc(deck().name)) +
-      '. Come back tomorrow.</p></div>';
+    let inner = '<p class="big">Done for today</p>';
+    if (sessionLog.length){
+      const seen = new Set(sessionLog.map(x => x.c));
+      const missed = [...new Set(sessionLog.filter(x => x.g === "again").map(x => x.c))];
+      inner += '<p>' + seen.size + ' card' + (seen.size === 1 ? "" : "s") +
+        ' reviewed · ' + (seen.size - missed.length) + ' right' +
+        (missed.length ? ' · ' + missed.length + ' missed' : '') + '</p>';
+      if (missed.length){
+        const names = missed.slice(0, 8).map(c => esc(c.back || c.front)).join(", ");
+        inner += '<p class="note">Missed: ' + names +
+          (missed.length > 8 ? " +" + (missed.length - 8) + " more" : "") + '</p>';
+      }
+    } else {
+      inner += '<p>Nothing due in ' + (mixMode ? "any deck" : esc(deck().name)) +
+        '. Come back tomorrow.</p>';
+    }
+    face.innerHTML = '<div class="done">' + inner + '</div>';
     bar.innerHTML = '<button class="btn" onclick="exitReview()">Back</button>';
     return;
   }
@@ -918,9 +1013,28 @@ async function reveal(){
 }
 
 function doGrade(g){
+  undoState = {c: curC, d: curD, dir: curDir, g, day: today(), dealtVal: dealt,
+    heldVal: held.get(curC.id),
+    prev: {reps: curC.reps, interval: curC.interval, ease: curC.ease,
+           lapses: curC.lapses, due: curC.due, introduced: curC.introduced}};
   gradeCard(curC, g);
+  sessionLog.push({c: curC, g});
   renderReview();
 }
+function undoGrade(){
+  if (!undoState) return;
+  const u = undoState; undoState = null;
+  Object.assign(u.c, u.prev);
+  if (u.heldVal === undefined) held.delete(u.c.id); else held.set(u.c.id, u.heldVal);
+  dealt = u.dealtVal;
+  const rec = db.stats && db.stats[u.day];
+  if (rec){ rec.n--; if (u.g !== "again") rec.right--; }
+  sessionLog.pop();
+  save();
+  curC = u.c; curD = u.d; curDir = u.dir;
+  show("v-review"); reveal();
+}
+
 
 // ---- backup -----------------------------------------------------------
 async function exportAll(){

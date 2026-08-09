@@ -115,6 +115,11 @@ textarea{min-height:96px}
     <span class="tagline">the memory app that doesn’t punish you</span></header>
 
   <section id="v-decks">
+    <div class="row" id="decksortrow">
+      <button class="btn quiet srt" data-s="added" onclick="setDeckSort('added')">Added</button>
+      <button class="btn quiet srt" data-s="name" onclick="setDeckSort('name')">Name</button>
+      <button class="btn quiet srt" data-s="progress" onclick="setDeckSort('progress')">Progress</button>
+    </div>
     <div id="decklist"></div>
     <div class="row">
       <input id="newdeck" placeholder="New deck name" enterkeyhint="done">
@@ -131,7 +136,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v13</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v14</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -595,10 +600,31 @@ function addExampleDeck(i){
   db.decks.push(d); save(); openDeck(d.id);
 }
 
+// decks-page sorting: by creation, name, or how far along a deck is.
+// Progress counts a started card once and a solid (21d+) card twice, so
+// a deck you've begun outranks an untouched one and mastery breaks ties.
+function deckProgress(d){
+  if (!d.cards.length) return 0;
+  let started = 0, solid = 0;
+  for (const c of d.cards)
+    if (c.due != null){ started++; if (Math.round(c.interval) >= 21) solid++; }
+  return (started + solid) / (2 * d.cards.length);
+}
+function sortedDecks(){
+  const arr = [...db.decks], s = db.deckSort || "added";
+  if (s === "name") arr.sort((a,b) => a.name.localeCompare(b.name));
+  else if (s === "progress") arr.sort((a,b) => deckProgress(b) - deckProgress(a));
+  return arr;
+}
+function setDeckSort(v){ db.deckSort = v; save(); showDecks(); }
+
 function showDecks(){
   cur = null; nav({v: "decks"}); show("v-decks");
+  $("decksortrow").classList.toggle("hide", db.decks.length < 2);
+  document.querySelectorAll("#decksortrow .srt").forEach(b =>
+    b.classList.toggle("on", (db.deckSort || "added") === b.dataset.s));
   const box = $("decklist"); box.innerHTML = "";
-  for (const d of db.decks){
+  for (const d of sortedDecks()){
     const [due, nw] = counts(d);
     const parts = [];
     if (due) parts.push(due + " due");

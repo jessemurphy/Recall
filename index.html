@@ -72,6 +72,7 @@ textarea{min-height:96px}
   font-variant-numeric:tabular-nums}
 .srt{font-size:13.5px;padding:7px 12px}
 .srt.on{color:var(--accent);border-color:var(--accent);font-weight:700}
+#exlist .btn{display:block;width:100%;text-align:left;margin-bottom:8px}
 .undo{border:none;background:none;color:var(--accent);font-size:13px;
   padding:0 4px;font-weight:600}
 .bars{display:flex;align-items:flex-end;gap:2px;height:72px}
@@ -133,23 +134,13 @@ textarea{min-height:96px}
       <button class="btn quiet srt" data-s="progress" onclick="setDeckSort('progress')">Progress</button>
     </div>
     <div id="decklist"></div>
-    <div class="row">
-      <input id="newdeck" placeholder="New deck name" enterkeyhint="done">
-      <button class="btn primary" onclick="addDeck()">Create</button>
-    </div>
     <p class="hint" id="empty-hint"></p>
-    <div class="row"><button class="btn quiet" onclick="openStats()">&#128202; Stats</button></div>
-    <h2>Backup</h2>
-    <div class="row">
-      <button class="btn quiet" onclick="exportAll()">Export backup</button>
-      <button class="btn quiet" onclick="$('importfile').click()">Import backup</button>
-      <input type="file" id="importfile" accept=".json,application/json"
-             class="hide" onchange="importAll(this)">
-    </div>
+    <div class="row"><button class="btn quiet" onclick="openStats()">&#128202; Stats</button>
+      <button class="btn quiet" onclick="openManage()">&#128451;&#65039; Manage decks</button></div>
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v16</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v17</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -181,6 +172,24 @@ The capital of France is {Paris}"></textarea>
   <section id="v-stats" class="hide">
     <button class="crumb" onclick="history.back()">&larr; Decks</button>
     <div id="statsbody"></div>
+  </section>
+
+  <section id="v-manage" class="hide">
+    <button class="crumb" onclick="history.back()">&larr; Decks</button>
+    <h2 style="margin-top:6px">New deck</h2>
+    <div class="row">
+      <input id="newdeck" placeholder="New deck name" enterkeyhint="done">
+      <button class="btn primary" onclick="addDeck()">Create</button>
+    </div>
+    <h2>Example decks</h2>
+    <div id="exlist"></div>
+    <h2>Backup</h2>
+    <div class="row">
+      <button class="btn quiet" onclick="exportAll()">Export backup</button>
+      <button class="btn quiet" onclick="$('importfile').click()">Import backup</button>
+      <input type="file" id="importfile" accept=".json,application/json"
+             class="hide" onchange="importAll(this)">
+    </div>
   </section>
 
   <section id="v-review" class="hide">
@@ -334,7 +343,7 @@ let cur = null, editId = null;
 // real history entry, back buttons pop it, popstate renders without
 // re-pushing. Depth: decks(0) < deck(1) < edit/review(2).
 let navving = false;
-const NAV_DEPTH = {decks: 0, deck: 1, edit: 2, review: 2, stats: 1};
+const NAV_DEPTH = {decks: 0, deck: 1, edit: 2, review: 2, stats: 1, manage: 1};
 function nav(st){
   if (navving) return;
   const prev = history.state || {v: "decks"};
@@ -348,6 +357,7 @@ window.addEventListener("popstate", ev => {
   try {
     if (st.v === "deck") openDeck(st.id);
     else if (st.v === "stats") openStats();
+    else if (st.v === "manage") openManage();
     else if (st.v === "edit") openEdit(st.id);
     else if (st.v === "review"){ mixMode = !!st.mix; cur = st.id ?? null; show("v-review"); renderReview(); }
     else showDecks();
@@ -358,7 +368,7 @@ history.replaceState({v: "decks"}, "");
 
 const $ = id => document.getElementById(id);
 const show = v => {
-  for (const s of ["v-decks","v-deck","v-edit","v-review","v-stats"])
+  for (const s of ["v-decks","v-deck","v-edit","v-review","v-stats","v-manage"])
     $(s).classList.toggle("hide", s !== v);
   $("gradebar").classList.toggle("hide", v !== "v-review");
   scrollTo(0, 0);
@@ -692,23 +702,16 @@ function showDecks(){
     r.onclick = startMixReview;
     box.appendChild(r);
   }
-  EXAMPLE_DECKS.forEach((ex, i) => {
-    if (db.decks.some(d => d.name === ex.name)) return;
-    const b = document.createElement("button");
-    b.className = "btn quiet";
-    b.textContent = "+ Add example deck: " + ex.name;
-    b.onclick = () => addExampleDeck(i);
-    box.appendChild(b);
-  });
   $("empty-hint").textContent = db.decks.length ? "" :
-    "No decks yet — name one above to start. Try a few things you actually want to remember.";
+    "No decks yet — tap Manage decks below to create one or add an example.";
 }
 
 function addDeck(){
   const name = $("newdeck").value.trim();
   if (!name) return;
-  db.decks.push({id: db.seq++, name, cards: []});
-  $("newdeck").value = ""; save(); showDecks();
+  const d = {id: db.seq++, name, cards: []};
+  db.decks.push(d);
+  $("newdeck").value = ""; save(); openDeck(d.id);
 }
 
 function deleteDeck(){
@@ -901,6 +904,22 @@ function sides(c, dir){
 let mixMode = false, curC = null, curD = null;
 let undoState = null;
 const sessionLog = [];
+function openManage(){
+  nav({v: "manage"});
+  show("v-manage");
+  const box = $("exlist"); box.innerHTML = "";
+  EXAMPLE_DECKS.forEach((ex, i) => {
+    if (db.decks.some(d => d.name === ex.name)) return;
+    const b = document.createElement("button");
+    b.className = "btn quiet";
+    b.textContent = "+ " + ex.name + " (" + ex.cards.length + " cards)";
+    b.onclick = () => addExampleDeck(i);
+    box.appendChild(b);
+  });
+  if (!box.children.length)
+    box.innerHTML = '<p class="hint">Every example deck is already added.</p>';
+}
+
 function openStats(){
   nav({v: "stats"});
   show("v-stats");

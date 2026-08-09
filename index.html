@@ -68,6 +68,10 @@ textarea{min-height:96px}
 .mst.m1{color:var(--easy)}
 .mst.m2{color:var(--accent);font-weight:700}
 .hint{color:var(--muted);font-size:13.5px;line-height:1.55}
+.dstats{color:var(--muted);font-size:13.5px;margin:2px 0 0;
+  font-variant-numeric:tabular-nums}
+.srt{font-size:13.5px;padding:7px 12px}
+.srt.on{color:var(--accent);border-color:var(--accent);font-weight:700}
 .face{background:var(--card);border:1px solid var(--rule);border-radius:16px;
   min-height:240px;padding:30px 22px;margin:14px 0;display:flex;
   flex-direction:column;justify-content:center;align-items:center;
@@ -127,20 +131,25 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v12</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v13</span></p>
   </section>
 
   <section id="v-deck" class="hide">
     <button class="crumb" onclick="history.back()">&larr; Decks</button>
     <div id="deckhead"></div>
+    <h2>Cards <span class="hint">(tap one to edit)</span></h2>
+    <div class="row" id="sortrow">
+      <button class="btn quiet srt" data-s="added" onclick="setSort('added')">Order added</button>
+      <button class="btn quiet srt" data-s="front" onclick="setSort('front')">A&ndash;Z</button>
+      <button class="btn quiet srt" data-s="weakest" onclick="setSort('weakest')">Weakest first</button>
+    </div>
+    <div id="cardlist"></div>
     <h2>Add cards</h2>
     <textarea id="bulk" placeholder="One per line:
 bonjour | hello
 The capital of France is {Paris}"></textarea>
     <div class="row"><button class="btn primary" onclick="bulkAdd()">Add</button>
       <span class="hint" id="addmsg" style="align-self:center"></span></div>
-    <h2>Cards <span class="hint">(tap one to edit)</span></h2>
-    <div id="cardlist"></div>
     <div class="row" style="margin-top:20px">
       <button class="btn quiet danger" onclick="deleteDeck()">Delete deck</button>
     </div>
@@ -649,6 +658,31 @@ function deleteDeck(){
   save(); history.back();
 }
 
+// one-line deck summary + card-list sorting
+function statsLine(d){
+  const t = today();
+  let nw = 0, learn = 0, solid = 0, due = 0;
+  for (const c of d.cards){
+    if (c.due == null){ nw++; continue; }
+    if (c.due <= t) due++;
+    if (Math.round(c.interval) >= 21) solid++; else learn++;
+  }
+  const bits = [d.cards.length + " card" + (d.cards.length === 1 ? "" : "s")];
+  if (nw) bits.push(nw + " new");
+  if (due) bits.push(due + " due");
+  if (learn) bits.push(learn + " learning");
+  if (solid) bits.push(solid + " solid");
+  return bits.join(" \u00b7 ");
+}
+const wk = c => c.due == null ? 1e9 : Math.round(c.interval);
+function sortCards(d){
+  const arr = [...d.cards], s = d.sort || "added";
+  if (s === "front")
+    arr.sort((a,b) => a.front.localeCompare(b.front, undefined, {numeric: true}));
+  else if (s === "weakest") arr.sort((a,b) => wk(a) - wk(b));
+  return arr;                            // "added" keeps insertion order
+}
+function setSort(v){ const d = deck(); d.sort = v; save(); openDeck(cur); }
 function openDeck(id){
   cur = id; const d = deck();
   if (!d) return showDecks();
@@ -658,14 +692,17 @@ function openDeck(id){
   const ready = due + nw > 0;
   $("deckhead").innerHTML = '<div class="row" style="align-items:center">' +
     '<span style="font-size:22px;font-weight:800">' + esc(d.name) + '</span>' +
-    (ready ? '<button class="btn primary" style="margin-left:auto" onclick="startReview()">Review · ' +
-       (due ? due + " due" : "") + (due && nw ? ", " : "") + (nw ? nw + " new" : "") + '</button>'
+    (ready ? '<button class="btn primary" style="margin-left:auto" onclick="startReview()">Review</button>'
      : '<span class="hint" style="margin-left:auto">' +
        (d.cards.length ? "Done for today." : "") + '</span>') + '</div>' +
+    '<p class="dstats">' + statsLine(d) + '</p>' +
     (d.cards.length ? '<div class="row"><button class="btn quiet" onclick="toggleRev()">&#8646; Asking: ' +
        DIR_LABEL[deckDir(d)] + '</button></div>' : '');
+  $("sortrow").classList.toggle("hide", !d.cards.length);
+  document.querySelectorAll("#sortrow .srt").forEach(b =>
+    b.classList.toggle("on", (d.sort || "added") === b.dataset.s));
   const box = $("cardlist"); box.innerHTML = "";
-  for (const c of d.cards){
+  for (const c of sortCards(d)){
     const row = document.createElement("button");
     row.className = "cardline";
     const m = mastery(c);

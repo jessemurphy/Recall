@@ -15,12 +15,15 @@
   --bg:#faf8f4; --card:#ffffff; --ink:#1c1b19; --muted:#77736b;
   --rule:#e4ded2; --accent:#2f6f5e; --accent-ink:#ffffff;
   --again:#b04a3a; --easy:#3a6fb0; --wash:#f1ede4;
+  --tint-g:#d9ecdf; --tint-b:#dde8f5; --tint-r:#f6e0db;
 }
 @media (prefers-color-scheme: dark){
   :root{
     --bg:#161613; --card:#211f1b; --ink:#ece8e0; --muted:#98938a;
     --rule:#38352f; --accent:#5aa88f; --accent-ink:#10201a;
     --again:#d0705e; --easy:#7aa6d8; --wash:#1c1a17;
+    --tint-g:rgba(90,168,143,.24); --tint-b:rgba(122,166,216,.22);
+    --tint-r:rgba(208,112,94,.26);
   }
 }
 *{box-sizing:border-box}
@@ -140,7 +143,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v18</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v19</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -655,6 +658,25 @@ function deckProgress(d){
     if (c.due != null){ started++; if (Math.round(c.interval) >= 21) solid++; }
   return (started + solid) / (2 * d.cards.length);
 }
+// Deck-row progress tint: green (21d+), blue (7-20d), red (<7d), and
+// untinted card for cards not yet seen — drawn left to right.
+function deckGradient(d){
+  const n = d.cards.length;
+  if (!n) return "";
+  let g = 0, b = 0, r = 0;
+  for (const c of d.cards){
+    if (c.due == null) continue;
+    const iv = Math.round(c.interval);
+    if (iv >= 21) g++; else if (iv >= 7) b++; else r++;
+  }
+  if (!g && !b && !r) return "";
+  const pg = 100 * g / n, pb = pg + 100 * b / n, pr = pb + 100 * r / n;
+  return "linear-gradient(90deg," +
+    "var(--tint-g) 0 " + pg + "%," +
+    "var(--tint-b) " + pg + "% " + pb + "%," +
+    "var(--tint-r) " + pb + "% " + pr + "%," +
+    "transparent " + pr + "%)";
+}
 function sortedDecks(){
   const arr = [...db.decks], s = db.deckSort || "added";
   if (s === "name") arr.sort((a,b) => a.name.localeCompare(b.name));
@@ -678,6 +700,7 @@ function showDecks(){
                 : (d.cards.length ? "done for today" : "empty");
     const b = document.createElement("button");
     b.className = "deckrow";
+    b.style.backgroundImage = deckGradient(d);
     b.innerHTML = '<span class="nm">' + esc(d.name) + '</span>' +
       '<span class="ct' + (parts.length ? " hot" : "") + '">' + label + '</span>';
     b.onclick = () => openDeck(d.id);

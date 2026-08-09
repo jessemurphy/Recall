@@ -1,6 +1,6 @@
 /* Recall PWA service worker: network-first for freshness while the
    prototype iterates, full cache fallback so it opens offline. */
-const CACHE = "recall-v4";
+const CACHE = "recall-v5";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest",
                 "./icon-180.png", "./icon-512.png"];
 

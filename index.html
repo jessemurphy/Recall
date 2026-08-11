@@ -143,7 +143,7 @@ textarea{min-height:96px}
     <p class="foot">All data lives on this device. Export now and then —
       the file doubles as the future import format. A lapse halves a card’s
       interval instead of resetting it; ease never falls below 1.3;
-      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v26</span></p>
+      20 new cards a day. Cards deal in random order. <span style="opacity:.6">v27</span></p>
   </section>
 
   <section id="v-deck" class="hide">
@@ -1262,6 +1262,9 @@ function sides(c, dir){
 let mixMode = false, curC = null, curD = null;
 let undoState = null;
 const sessionLog = [];
+const MISS_NUDGE = 20;
+let nextNudge = MISS_NUDGE;
+function resumeReview(){ nextNudge += MISS_NUDGE; renderReview(); }
 function setOrder(v){ db.reviewOrder = v; save(); openManage(); }
 function openManage(){
   nav({v: "manage"});
@@ -1338,18 +1341,30 @@ function openStats(){
     ' all time · ' + nAll + ' answer' + (nAll === 1 ? "" : "s") + ' recorded</p>' +
     '<h2>Decks</h2>' + (decksHtml || '<p class="hint">No cards yet.</p>');
 }
-function startReview(){ mixMode = false; undoState = null; sessionLog.length = 0; nav({v: "review", id: cur}); show("v-review"); renderReview(); }
-function startMixReview(){ mixMode = true; cur = null; undoState = null; sessionLog.length = 0; nav({v: "review", mix: true}); show("v-review"); renderReview(); }
+function startReview(){ mixMode = false; undoState = null; sessionLog.length = 0; nextNudge = MISS_NUDGE; nav({v: "review", id: cur}); show("v-review"); renderReview(); }
+function startMixReview(){ mixMode = true; cur = null; undoState = null; sessionLog.length = 0; nextNudge = MISS_NUDGE; nav({v: "review", mix: true}); show("v-review"); renderReview(); }
 function exitReview(){ history.back(); }
 
 async function renderReview(){
   const decks = mixMode ? db.decks : [deck()];
-  const e = nextEntry(decks);
   let due = 0, nw = 0;
   for (const k of decks){ const n = counts(k); due += n[0]; nw += n[1]; }
   $("rcounts").innerHTML = due + " due" + (nw ? " · " + nw + " new" : "") +
     (undoState ? ' · <button class="undo" onclick="undoGrade()">&#8617; undo</button>' : "");
   const face = $("rface"), bar = $("gradebtns");
+  // A red keeps its card due today, so a rough deck can cycle forever —
+  // offer an exit every MISS_NUDGE misses instead of grinding.
+  const misses = sessionLog.filter(x => x.g === "again").length;
+  if (due + nw > 0 && misses >= nextNudge){
+    face.innerHTML = '<div class="done"><p class="big">Time for a break?</p>' +
+      '<p>' + misses + ' misses this session. Anything still due will be ' +
+      'waiting for you — short daily sessions beat marathons.</p></div>';
+    bar.innerHTML =
+      '<button class="btn" onclick="exitReview()">Done for today</button>' +
+      '<button class="btn primary" onclick="resumeReview()">Keep going</button>';
+    return;
+  }
+  const e = nextEntry(decks);
   if (!e){
     let inner = '<p class="big">Done for today</p>';
     if (sessionLog.length){
